@@ -31,16 +31,13 @@ init_dirs([
    'department_of_trade_and_industries',
 ])
 
+
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(
    CORSMiddleware,
    allow_headers=["*"],
    allow_methods=["*"],
-   allow_origins=[
-      envs("FRONT_END_URL"),
-      'http://localhost:5173',
-      '*'
-   ],
+   allow_origins=['http://localhost:5173'],
    allow_credentials=True,
 )
 
