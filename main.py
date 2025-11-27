@@ -36,11 +36,7 @@ app.add_middleware(
    CORSMiddleware,
    allow_headers=["*"],
    allow_methods=["*"],
-   allow_origins=[
-      envs("FRONT_END_URL"),
-      'http://localhost:5173',
-      '*'
-   ],
+   allow_origins=[envs("FRONT_END_URL")],
    allow_credentials=True,
 )
 
