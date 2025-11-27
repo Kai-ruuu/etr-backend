@@ -31,6 +31,7 @@ init_dirs([
    'department_of_trade_and_industries',
 ])
 
+
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(
    CORSMiddleware,
