@@ -9,7 +9,11 @@ from typing import Optional
 from sqlmodel import Session
 from fastapi import APIRouter, Depends, Query, UploadFile, File, Form
 
-router = APIRouter(prefix='/sysad', tags=['Sysad', 'Admin'])
+router = APIRouter(prefix='/sysad', tags=['Sysad'])
+
+@router.get('/database/backup')
+def route_database_backup(user: dict = Depends(allow_roles([Role.sysad])), session: Session = Depends(get_session)):
+   return database_backup()
 
 @router.post('/admin')
 def route_add_admin(payload: SysadAddAdminInput, user: dict = Depends(allow_roles([Role.sysad])), session: Session = Depends(get_session)):
@@ -22,6 +26,10 @@ def route_act_deact_admin_by_id(admin_id: int, user: dict = Depends(allow_roles(
 @router.patch('/admin/{admin_id}/deactivate')
 def route_act_deact_admin_by_id(admin_id: int, user: dict = Depends(allow_roles([Role.sysad])), session: Session = Depends(get_session)):
    return act_deact_admin_by_id(admin_id, False, user, session)
+
+@router.get('/school')
+def route_get_schools(archived: bool = False, page: int = Query(1, ge=1), page_size: int = Query(10, ge=1, le=100), user: dict = Depends(allow_roles([Role.sysad])), session: Session = Depends(get_session)):
+   return get_schools(archived, page, page_size, session)
 
 @router.post('/school')
 def route_add_school(payload: SysadAddSchoolInput, user: dict = Depends(allow_roles([Role.sysad])), session: Session = Depends(get_session)):

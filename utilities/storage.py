@@ -2,11 +2,12 @@ from pathlib import Path
 from datetime import datetime
 from fastapi import UploadFile, HTTPException, status
 
+dump_dir = Path(__file__).parent.parent / 'dumps'
 storage_dir = Path(__file__).parent.parent / 'storage'
 
-def init_dirs(dirs: list[str] = []) -> None:
+def init_dirs(dir: str = storage_dir, dirs: list[str] = []) -> None:
    for dir_ in dirs:
-      dir_path = storage_dir / dir_
+      dir_path = dir / dir_
       
       if not dir_path.exists():
          dir_path.mkdir(parents=True)

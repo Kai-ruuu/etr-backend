@@ -4,6 +4,7 @@ from backend.models.sysad import *
 from backend.utilities.app_setup import *
 from backend.utilities.environment import *
 from backend.utilities.storage import init_dirs
+from backend.utilities.storage import storage_dir, dump_dir
 
 # app routers
 from backend.api.test import user as user_router
@@ -17,20 +18,32 @@ from fastapi import FastAPI
 from os.path import join as join_path
 from fastapi.middleware.cors import CORSMiddleware
 
-init_dirs([
-   'avatar',
-   'company_logo',
-   'business_permit',
-   'company_profile',
-   'letter_of_intent',
-   'dole_certification',
-   'philjobnet_registration',
-   'registry_of_establishment',
-   'pending_case_certification',
-   'securities_and_exchange_commission',
-   'department_of_trade_and_industries',
-])
+# create exported sql dumps folder
+init_dirs(
+   dir = dump_dir,
+   dirs = [
+      'exported',
+      'restored'
+   ]
+)
 
+# create app storage folders
+init_dirs(
+   dir = storage_dir,
+   dirs = [
+      'avatar',
+      'company_logo',
+      'business_permit',
+      'company_profile',
+      'letter_of_intent',
+      'dole_certification',
+      'philjobnet_registration',
+      'registry_of_establishment',
+      'pending_case_certification',
+      'securities_and_exchange_commission',
+      'department_of_trade_and_industries',
+   ]
+)
 
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(

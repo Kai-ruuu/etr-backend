@@ -1,12 +1,39 @@
+from backend.utilities.storage import dump_dir
+from backend.utilities.environment import envs
 from backend.services.admin import add_audit_log
 from backend.schemas.sysad import SysadAddSchoolInput, SysadAddJobPostInput
 from backend.models.sysad import SysadSchool, SysadCompany, SysadCompanyJob
 from backend.utilities.storage import files_saved_if_all_allowed_and_required, file_update_from_dir
 
+import subprocess
 from typing import Optional
+from datetime import datetime
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select, update
 from fastapi import HTTPException, UploadFile, File, Form, status
+
+def database_backup():
+   backup_filename = dump_dir / 'exported' / f'exported_{datetime.now().strftime("%m-%d-%Y_%I-%M_%p")}.sql'
+   command = [
+      'mysqldump',
+      '-h', envs('DB_HOST'),
+      '-u', envs('DB_USER'),
+      f"--password={envs('DB_PASS')}",
+      envs('DB_NAME')
+   ]
+   
+   try:
+      with open(backup_filename, 'w', encoding='utf-8') as file:
+         subprocess.run(
+            command,
+            stdout = file,
+            stderr = subprocess.PIPE,
+            check = True
+         )
+         
+      return { 'detail': 'Backup success.' }
+   except subprocess.CalledProcessError as e:
+      raise HTTPException(500, f"Backup failed.")
 
 def get_school_by_name(school_name: str, session: Session) -> SysadSchool | None:
    query = select(SysadSchool).where(SysadSchool.name == school_name)
@@ -16,6 +43,23 @@ def get_school_by_name(school_name: str, session: Session) -> SysadSchool | None
 
 def get_school_by_id(school_id: str, session: Session) -> SysadSchool | None:
    return session.get(SysadSchool, school_id)
+
+def get_schools(archived: bool, page: int, page_size: int, session: Session):
+   offset = (page - 1) * page_size
+   total = len(session.execute(select(SysadSchool).where(SysadSchool.archived == archived)).scalars().all())
+   statement = select(SysadSchool).where(SysadSchool.archived == archived).offset(offset).limit(page_size)
+   schools = session.execute(statement).scalars().all()
+   total_pages = (total + page_size - 1) // page_size
+   return {
+      'detail': 'Fetched schools.',
+      'data': {
+         "page": page,
+         "page_size": page_size,
+         "total": total,
+         "total_pages": total_pages,
+         "schools": schools
+      }
+   }
 
 def add_school(payload: SysadAddSchoolInput, sysad: dict, session: Session):
    # check if the school already exists, raise if yes
@@ -41,6 +85,16 @@ def add_school(payload: SysadAddSchoolInput, sysad: dict, session: Session):
    }
 
 def rename_school_by_id(school_id: int, payload: SysadAddSchoolInput, sysad: dict, session: Session):
+   # check if the new school's name is the same as any other school, raise if yes
+   school_query = select(SysadSchool).where(SysadSchool.name == payload.name)
+   school_query_result = session.execute(school_query)
+   existing_school_by_name = school_query_result.scalars().one_or_none()
+   if existing_school_by_name:
+      raise HTTPException(
+         status_code = status.HTTP_409_CONFLICT,
+         detail = 'A school with the same name already exists.'
+      )
+   
    # check if the school already exists, raise if yes
    existing_school = get_school_by_id(school_id, session)
    if not existing_school:
