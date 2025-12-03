@@ -1,9 +1,9 @@
 from backend.utilities.storage import dump_dir
 from backend.utilities.environment import envs
 from backend.services.admin import add_audit_log
-from backend.schemas.sysad import SysadAddSchoolInput, SysadAddJobPostInput
+from backend.schemas.sysad import SysadAddSchoolInput, SysadAddJobPostInput, SysadRenameCompanyInput
 from backend.models.sysad import SysadSchool, SysadCompany, SysadCompanyJob
-from backend.utilities.storage import files_saved_if_all_allowed_and_required, file_update_from_dir
+from backend.utilities.storage import file_save_to_dir, files_saved_if_all_allowed_and_required, file_update_from_dir
 
 import subprocess
 from typing import Optional
@@ -44,21 +44,32 @@ def get_school_by_name(school_name: str, session: Session) -> SysadSchool | None
 def get_school_by_id(school_id: str, session: Session) -> SysadSchool | None:
    return session.get(SysadSchool, school_id)
 
-def get_schools(archived: bool, page: int, page_size: int, session: Session):
-   offset = (page - 1) * page_size
-   total = len(session.execute(select(SysadSchool).where(SysadSchool.archived == archived)).scalars().all())
-   statement = select(SysadSchool).where(SysadSchool.archived == archived).offset(offset).limit(page_size)
-   schools = session.execute(statement).scalars().all()
+def get_schools(search: str | None, archived: bool, page: int, page_size: int, session: Session):
+   query = session.query(SysadSchool).filter(SysadSchool.archived == archived)
+
+   if search:
+      pattern = f"%{search}%"
+      query = query.filter(SysadSchool.name.ilike(pattern))
+
+   total = query.count()
    total_pages = (total + page_size - 1) // page_size
+
+   schools = (
+      query
+      .offset((page - 1) * page_size)
+      .limit(page_size)
+      .all()
+   )
+
    return {
-      'detail': 'Fetched schools.',
-      'data': {
+      "detail": "Fetched schools." if not search else "Fetched school results.",
+      "data": {
          "page": page,
          "page_size": page_size,
          "total": total,
          "total_pages": total_pages,
-         "schools": schools
-      }
+         "schools": schools,
+      },
    }
 
 def add_school(payload: SysadAddSchoolInput, sysad: dict, session: Session):
@@ -86,7 +97,7 @@ def add_school(payload: SysadAddSchoolInput, sysad: dict, session: Session):
 
 def rename_school_by_id(school_id: int, payload: SysadAddSchoolInput, sysad: dict, session: Session):
    # check if the new school's name is the same as any other school, raise if yes
-   school_query = select(SysadSchool).where(SysadSchool.name == payload.name)
+   school_query = select(SysadSchool).where(SysadSchool.id != school_id, SysadSchool.name == payload.name)
    school_query_result = session.execute(school_query)
    existing_school_by_name = school_query_result.scalars().one_or_none()
    if existing_school_by_name:
@@ -135,21 +146,58 @@ def arc_res_school_by_id(school_id: int, archived: bool, sysad: dict, session: S
       'data': { 'school': existing_school }
    }
 
-def get_companies(page: int, page_size: int, session: Session):
-   offset = (page - 1) * page_size
-   total = len(session.execute(select(SysadCompany)).scalars().all())
-   statement = select(SysadCompany).offset(offset).limit(page_size)
-   companies = session.execute(statement).scalars().all()
-   total_pages = (total + page_size - 1) // page_size
+def get_company_dict(company: SysadCompany) -> dict:
    return {
-      'detail': 'Fetched companies.',
-      'data': {
+      'id': company.id,
+      'name': company.name,
+      'archived': company.archived,
+      'created_at': company.created_at,
+      'updated_at': company.updated_at,
+      'sysad_creator_id': company.sysad_creator_id,
+      'peso_validator_id': company.peso_validator_id,
+      'status': company.status,
+      'archived': company.archived,
+      'documents': {
+         'logo_filename': company.logo_filename,
+         'letter_of_intent_filename': company.letter_of_intent_filename,
+         'company_profile_filename': company.company_profile_filename,
+         'business_permit_filename': company.business_permit_filename,
+         'sec_filename': company.sec_filename,
+         'dti_cda_filename': company.dti_cda_filename,
+         'reg_of_est_filename': company.reg_of_est_filename,
+         'dole_cert_filename': company.dole_cert_filename,
+         'no_pending_case_cert_filename': company.no_pending_case_cert_filename,
+         'philjob_reg_filename': company.philjob_reg_filename,
+      }
+   }
+
+def get_companies(search: str | None, archived: bool, page: int, page_size: int, session: Session):
+   query = session.query(SysadCompany).filter(SysadCompany.archived == archived)
+
+   if search:
+      pattern = f"%{search}%"
+      query = query.filter(SysadCompany.name.ilike(pattern))
+
+   total = query.count()
+   total_pages = (total + page_size - 1) // page_size
+
+   companies = (
+      query
+      .offset((page - 1) * page_size)
+      .limit(page_size)
+      .all()
+   )
+   
+   companiy_dicts = [get_company_dict(company) for company in companies]
+   return {
+      "detail": "Fetched companies." if not search else "Fetched company results.",
+      "data": {
          "page": page,
          "page_size": page_size,
          "total": total,
          "total_pages": total_pages,
-         "companies": companies
-      }
+         "companies": companiy_dicts,
+      },
    }
 
 def get_company_by_id(company_id: int, session: Session) -> SysadCompany | None:
@@ -163,9 +211,9 @@ def get_company_by_name(company_name: str, session: Session) -> SysadCompany | N
 
 def add_company(
    company_name: str = Form(...),
-   companny_logo: Optional[UploadFile] = File(None),
+   company_logo: Optional[UploadFile] = File(None),
    letter_of_intent: Optional[UploadFile] = File(None),
-   companny_profile: Optional[UploadFile] = File(None),
+   company_profile: Optional[UploadFile] = File(None),
    business_permit: Optional[UploadFile] = File(None),
    sec: Optional[UploadFile] = File(None),
    reg_of_est: Optional[UploadFile] = File(None),
@@ -188,7 +236,7 @@ def add_company(
          (
             'company_logo',
             'Company Logo',
-            companny_logo,
+            company_logo,
             False,
             ['.png', '.jpg', '.jpeg']
          ),
@@ -201,7 +249,7 @@ def add_company(
          (
             'company_profile',
             'Company Profile',
-            companny_profile,
+            company_profile,
             True,
             ['.pdf']),
          (
@@ -271,7 +319,37 @@ def add_company(
 
    return {
       'detail': 'Company has been added',
-      'data': { 'company': new_company }
+      'data': { 'company': get_company_dict(new_company) }
+   }
+
+def rename_company_by_id(company_id: int, payload: SysadRenameCompanyInput, sysad: dict, session: Session):
+   # check if the new school's name is the same as any other school, raise if yes
+   company_query = select(SysadCompany).where(SysadCompany.id != company_id, SysadCompany.name == payload.name)
+   company_query_result = session.execute(company_query)
+   existing_company_by_name = company_query_result.scalars().one_or_none()
+   if existing_company_by_name:
+      raise HTTPException(
+         status_code = status.HTTP_409_CONFLICT,
+         detail = 'A company with the same name already exists.'
+      )
+   
+   # check if the company already exists, raise if yes
+   existing_company = get_company_by_id(company_id, session)
+   if not existing_company:
+      raise HTTPException(
+         status_code = status.HTTP_409_CONFLICT,
+         detail = 'Invalid company id.'
+      )
+      
+   # create audit log
+   add_audit_log(sysad.get('id'), f'Renamed a company "{existing_company.name}" to "{payload.name}".', session)
+   
+   existing_company.name = payload.name
+   session.commit()
+   session.refresh(existing_company)
+   return {
+      'detail': 'Company has been renamed.',
+      'data': { 'company': get_company_dict(existing_company) }
    }
 
 def update_company_document(company_id: int, document_title: str = Form(...), document_file: Optional[UploadFile] = File(None), sysad: dict = None, session: Session = None) -> SysadCompany:
@@ -314,7 +392,10 @@ def update_company_document(company_id: int, document_title: str = Form(...), do
    old_filename = existing_company_dict[document_model_attribute]
 
    # update file
-   new_filename = file_update_from_dir(document_title, old_filename, document_file, document_allowed_extensions)
+   if old_filename:
+      new_filename = file_update_from_dir(document_title, old_filename, document_file, document_allowed_extensions)
+   else:
+      new_filename = file_save_to_dir(document_title, document_file)
 
    add_audit_log(sysad.get('id'), f'Updated a company document "{existing_company.name}".', session)
 
@@ -325,7 +406,7 @@ def update_company_document(company_id: int, document_title: str = Form(...), do
    session.refresh(existing_company)
    return {
       'detail': 'Document has been updated',
-      'data': { 'company': existing_company }
+      'data': { 'company': get_company_dict(existing_company) }
    }
 
 def arc_res_company_by_id(company_id: int, archived: bool, sysad: dict, session: Session):
@@ -349,7 +430,7 @@ def arc_res_company_by_id(company_id: int, archived: bool, sysad: dict, session:
    session.refresh(existing_company)
    return {
       'detail': f'Company has been {"archived" if archived else "restored"}.',
-      'data': { 'company': existing_company }
+      'data': { 'company': get_company_dict(existing_company) }
    }
 
 def get_job_post_by_title(job_post_title: str, session: Session) -> SysadCompanyJob | None:

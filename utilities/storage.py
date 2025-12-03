@@ -16,6 +16,9 @@ def init_dirs(dir: str = storage_dir, dirs: list[str] = []) -> None:
          print(f'[STORAGE_MANAGER] Exists "{dir_path}"')
 
 def file_save_to_dir(dirname: str, file: UploadFile) -> str:
+   if not file:
+      return ''
+   
    dir_path = storage_dir / dirname
    file_ext = Path(file.filename).suffix
    file_name = file.filename.replace(file_ext, '') + '_' + datetime.now().strftime("%m-%d-%Y_%I-%M_%p") + file_ext.lower()
@@ -80,7 +83,7 @@ def files_saved_if_all_allowed_and_required(files: list[tuple[str, str, UploadFi
          )
    
    # save and append
-   for dirname, _, file, _ in files:
+   for dirname, _, file, _, _ in files:
       file_names.append(file_save_to_dir(dirname, file))
    
    return file_names
