@@ -20,7 +20,7 @@ class SysadCompany(SQLModel, table=True):
    dole_cert_filename: str                     = Field(nullable=False) # Certification from DOLE Provincial Office
    no_pending_case_cert_filename: str = Field(nullable=False) # Certification of No Pending Case
    philjob_reg_filename: str          = Field(nullable=False) # Phil-JobNet Reg.
-   validated: bool                    = Field(default=False)
+   status: CompanyStatus              = Field(default=CompanyStatus.pending)
    archived: bool                     = Field(default=False)
 
    # timestamps

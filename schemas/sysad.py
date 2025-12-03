@@ -15,6 +15,9 @@ class SysadAddAdminInput(BaseModel):
 class SysadAddSchoolInput(BaseModel):
    name: str = Field(..., max_length=256)
 
+class SysadRenameCompanyInput(BaseModel):
+   name: str = Field(..., max_length=256)
+
 class SysadAddJobPostInput(BaseModel):
    company_id: int  = Field(...)
    location: str    = Field(...)

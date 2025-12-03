@@ -15,7 +15,7 @@ from backend.api.test import authentication as auth_router
 
 # library imports
 from fastapi import FastAPI
-from os.path import join as join_path
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 # create exported sql dumps folder
@@ -53,6 +53,16 @@ app.add_middleware(
    allow_origins=[envs("FRONT_END_URL")],
    allow_credentials=True,
 )
+app.mount('/files/company-logo', StaticFiles(directory=str(storage_dir / 'company_logo')))
+app.mount('/files/business-permit', StaticFiles(directory=str(storage_dir / 'business_permit')))
+app.mount('/files/company-profile', StaticFiles(directory=str(storage_dir / 'company_profile')))
+app.mount('/files/letter-of-intent', StaticFiles(directory=str(storage_dir / 'letter_of_intent')))
+app.mount('/files/dole-certification', StaticFiles(directory=str(storage_dir / 'dole_certification')))
+app.mount('/files/philjobnet-registration', StaticFiles(directory=str(storage_dir / 'philjobnet_registration')))
+app.mount('/files/registry-of-establishment', StaticFiles(directory=str(storage_dir / 'registry_of_establishment')))
+app.mount('/files/pending-case-certification', StaticFiles(directory=str(storage_dir / 'pending_case_certification')))
+app.mount('/files/securities-and-exchange-commission', StaticFiles(directory=str(storage_dir / 'securities_and_exchange_commission')))
+app.mount('/files/department-of-trade-and-industries', StaticFiles(directory=str(storage_dir / 'department_of_trade_and_industries')))
 
 @app.get('/')
 def index():

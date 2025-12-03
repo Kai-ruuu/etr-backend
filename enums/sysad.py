@@ -20,3 +20,8 @@ class CompanyWorkSetup(str, Enum):
    remote = 'remote'
    on_site = 'on_site'
    hybrid = 'hybrid'
+
+class CompanyStatus(str, Enum):
+   pending = 'pending',
+   approved = 'approved'
+   rejected = 'rejected'
